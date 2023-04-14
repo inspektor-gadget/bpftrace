@@ -1,6 +1,7 @@
 ARG BASE="focal"
 ARG LLVM_VERSION="12"
-FROM quay.io/iovisor/bpftrace-llvm:${BASE}_${LLVM_VERSION}
+#FROM quay.io/iovisor/bpftrace-llvm:${BASE}_${LLVM_VERSION} as builder
+FROM llvm as builder
 
 ARG BASE
 ARG LLVM_VERSION
@@ -45,6 +46,16 @@ RUN wget https://github.com/USCiLab/cereal/archive/refs/tags/v${CEREAL_VERSION}.
     tar xf v${CEREAL_VERSION}.tar.gz && \
     cp -r cereal-${CEREAL_VERSION}/include/cereal /usr/include
 
-COPY build.sh /build.sh
-RUN chmod 755 /build.sh
-ENTRYPOINT ["bash", "/build.sh"]
+ENV RUN_TESTS=0
+ENV BUILD_TESTING=OFF
+ENV VENDOR_GTEST=ON
+ENV STATIC_LINKING=ON
+ENV STATIC_LIBC=OFF
+ENV ALLOW_UNSAFE_PROBE=OFF
+ENV EMBED_USE_LLVM=ON
+
+COPY . /source
+RUN cd /source/docker && ./build.sh $(pwd) Release
+
+FROM ubuntu:focal
+COPY --from=builder /source/docker/src/bpftrace /usr/bin/bpftrace
